@@ -138,15 +138,22 @@ jobs:
       - name: Upsert main-latest release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           NOTES="Rolling build from \`main\` @ \`${GITHUB_SHA::7}\` — $(date -u '+%Y-%m-%d %H:%M:%SZ')"
           if gh release view main-latest >/dev/null 2>&1; then
+            # Buildnum in each RPM filename changes every run, so --clobber
+            # never matches. Explicitly remove stale .rpm assets first.
+            gh release view main-latest --json assets --jq '.assets[].name' \
+              | while read -r name; do
+                  case "$name" in *.rpm) gh release delete-asset main-latest "$name" --yes ;; esac
+                done
             gh release edit main-latest --prerelease --title "Rolling main build" --notes "${NOTES}"
           else
             gh release create main-latest --prerelease --title "Rolling main build" --notes "${NOTES}" --target "${GITHUB_SHA}"
           fi
-          gh release upload main-latest rpms/*.rpm --clobber
+          gh release upload main-latest rpms/*.rpm
 
   # ---------------------------------------------------------------------------
   # Push a dnf repository tree (createrepo_c --update) to gh-pages branch.
