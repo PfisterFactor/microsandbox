@@ -28,8 +28,10 @@ jobs:
         include:
           - arch: x86_64
             runner: ubuntu-latest
+            agentd_target: x86_64-unknown-linux-musl
           - arch: aarch64
             runner: ubuntu-24.04-arm
+            agentd_target: aarch64-unknown-linux-musl
 
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +60,13 @@ jobs:
         run: |
           cd vendor/libkrunfw
           make -j$(nproc)
+
+      - name: Build agentd (musl guest binary)
+        run: |
+          rustup target add ${{ matrix.agentd_target }}
+          cargo build --release --manifest-path crates/agentd/Cargo.toml --target ${{ matrix.agentd_target }}
+          mkdir -p build
+          cp crates/agentd/target/${{ matrix.agentd_target }}/release/agentd build/agentd
 
       - name: Build msb
         run: |
